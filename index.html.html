@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ميزاني - إدارة حسابات المشاريع الصغيرة والكريدي</title>
+    <!-- تحميل Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- تحميل خط Tajawal العربي الاحترافي -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <!-- أيقونات Lucide -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Tajawal', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#4f46e5',
+                            600: '#4338ca',
+                            700: '#3730a3',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #f8fafc;
+        }
+        /* تحسين شريط التمرير */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
+        .tab-active {
+            background-color: #4f46e5;
+            color: #ffffff;
+            box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.25);
+        }
+        .tab-inactive {
+            background-color: #ffffff;
+            color: #475569;
+        }
+        .tab-inactive:hover {
+            background-color: #f1f5f9;
+        }
+        /* تأثير ظهور ناعم */
+        .fade-in {
+            animation: fadeIn 0.25s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- شريط التنبيهات / الرسائل (بديل alert) -->
+    <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 w-11/12 max-w-md pointer-events-none"></div>
+
+    <!-- نافذة تأكيد مخصصة (بديل confirm) -->
+    <div id="confirm-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl border border-slate-100 fade-in">
+            <div class="flex items-center gap-3 text-rose-600 mb-3">
+                <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+                <h3 id="confirm-title" class="text-lg font-bold text-slate-900">تأكيد الإجراء</h3>
+            </div>
+            <p id="confirm-message" class="text-slate-600 text-sm mb-6 leading-relaxed"></p>
+            <div class="flex gap-3 justify-end">
+                <button id="confirm-cancel" class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-sm transition">إلغاء</button>
+                <button id="confirm-ok" class="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-medium text-sm transition">تأكيد</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- نافذة تسجيل دفعة سداد دين -->
+    <div id="payment-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100 fade-in">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <i data-lucide="banknote" class="w-5 h-5 text-emerald-600"></i>
+                    تسجيل دفعة سداد
+                </h3>
+                <button onclick="closePaymentModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="bg-slate-50 p-3.5 rounded-xl mb-4 border border-slate-200/70 text-sm">
+                <div class="flex justify-between mb-1">
+                    <span class="text-slate-500">الطرف:</span>
+                    <span id="pay-modal-name" class="font-bold text-slate-800"></span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">المبلغ المتبقي حالياً:</span>
+                    <span id="pay-modal-remaining" class="font-bold text-indigo-600"></span>
+                </div>
+            </div>
+            <form id="payment-form" class="space-y-4">
+                <input type="hidden" id="pay-modal-id">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1.5">المبلغ المدفوع الآن (دج)</label>
+                    <div class="flex gap-2">
+                        <input type="number" id="pay-modal-amount" min="1" step="any" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-left font-bold" dir="ltr" placeholder="0">
+                        <button type="button" onclick="fillFullPayment()" class="px-3 py-2.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs whitespace-nowrap border border-emerald-200 transition">
+                            سداد كامل
+                        </button>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 bg-indigo-50/70 p-3 rounded-xl border border-indigo-100">
+                    <input type="checkbox" id="pay-modal-record-tx" checked class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500">
+                    <label for="pay-modal-record-tx" class="text-xs text-slate-700 cursor-pointer">تسجيل هذه الدفعة تلقائياً في سجل العمليات (كمدخول أو مصروف)</label>
+                </div>
+                <div class="flex gap-3 justify-end pt-2">
+                    <button type="button" onclick="closePaymentModal()" class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-sm">إلغاء</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-sm transition">حفظ السداد</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- الرأس (Header) -->
+    <header class="bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-6xl mx-auto px-4 py-3.5 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-md shadow-indigo-200">
+                    <i data-lucide="wallet" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-xl font-extrabold text-slate-900 tracking-tight">ميزاني</h1>
+                        <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">النسخة الذكية</span>
+                    </div>
+                    <p class="text-xs text-slate-500">مساعدك المحاسبي للمشاريع الصغيرة، المنزلية، والتجارة الإلكترونية</p>
+                </div>
+            </div>
+
+            <!-- أزرار التحكم بالبيانات -->
+            <div class="flex items-center gap-2">
+                <button onclick="exportSummaryReport()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition" title="نسخ ملخص مالي جاهز للمشاركة">
+                    <i data-lucide="share-2" class="w-4 h-4 text-indigo-600"></i>
+                    <span class="hidden sm:inline">تصدير ملخص</span>
+                </button>
+                <button onclick="downloadJSONBackup()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition" title="تنزيل نسخة احتياطية">
+                    <i data-lucide="download" class="w-4 h-4 text-emerald-600"></i>
+                    <span class="hidden sm:inline">نسخة احتياطية</span>
+                </button>
+                <button onclick="confirmResetAll()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200/80 text-xs font-bold transition" title="مسح جميع البيانات والبدء من الصفر">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    <span>تصفير الكل</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- شريط التبويبات الرئيسية -->
+        <nav class="max-w-6xl mx-auto px-4 pb-3 pt-1">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="tab-active flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-bold transition border border-transparent">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                    <span>لوحة التحكم</span>
+                </button>
+                <button onclick="switchTab('transactions')" id="tab-btn-transactions" class="tab-inactive flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-bold transition border border-slate-200/80">
+                    <i data-lucide="arrow-left-right" class="w-4 h-4"></i>
+                    <span>سجل العمليات</span>
+                </button>
+                <button onclick="switchTab('credits')" id="tab-btn-credits" class="tab-inactive flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-bold transition border border-slate-200/80">
+                    <i data-lucide="book-open-check" class="w-4 h-4"></i>
+                    <span>دفتر الكريدي</span>
+                </button>
+                <button onclick="switchTab('pricing')" id="tab-btn-pricing" class="tab-inactive flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-bold transition border border-slate-200/80">
+                    <i data-lucide="calculator" class="w-4 h-4"></i>
+                    <span>حاسبة التسعير</span>
+                </button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- المحتوى الرئيسي -->
+    <main class="max-w-6xl w-full mx-auto px-4 py-6 flex-1">
+
+        <!-- ========================================== -->
+        <!-- 1. قسم لوحة التحكم (Dashboard)             -->
+        <!-- ========================================== -->
+        <section id="view-dashboard" class="space-y-6 fade-in">
+            
+            <!-- 4 بطاقات ملخصة -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- إجمالي المبيعات -->
+                <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-bold text-slate-500">إجمالي المبيعات</span>
+                        <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                            <i data-lucide="trending-up" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <div id="dash-sales" class="text-2xl font-extrabold text-slate-900">0 دج</div>
+                    <p class="text-xs text-emerald-600 mt-1.5 font-medium">إجمالي المداخيل المسجلة</p>
+                </div>
+
+                <!-- إجمالي المصاريف -->
+                <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-bold text-slate-500">إجمالي المصاريف</span>
+                        <div class="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                            <i data-lucide="trending-down" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <div id="dash-expenses" class="text-2xl font-extrabold text-slate-900">0 دج</div>
+                    <p id="dash-withdrawals-note" class="text-xs text-slate-500 mt-1.5">تشمل التشغيل والتوصيل</p>
+                </div>
+
+                <!-- صافي الربح الفعلي -->
+                <div class="bg-gradient-to-br from-indigo-600 to-violet-700 p-5 rounded-2xl text-white shadow-md shadow-indigo-200/60 relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-bold text-indigo-100">صافي الربح الفعلي</span>
+                        <div class="w-9 h-9 rounded-xl bg-white/15 text-white flex items-center justify-center">
+                            <i data-lucide="award" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <div id="dash-net-profit" class="text-2xl font-extrabold">0 دج</div>
+                    <p id="dash-margin-badge" class="text-xs text-indigo-100 mt-1.5 font-medium">هامش الربح: 0%</p>
+                </div>
+
+                <!-- إجمالي الديون العالقة (الكريدي) -->
+                <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-bold text-slate-500">الكريدي عند الزبائن</span>
+                        <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                            <i data-lucide="clock" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <div id="dash-receivables" class="text-2xl font-extrabold text-amber-600">0 دج</div>
+                    <p id="dash-payables-note" class="text-xs text-slate-500 mt-1.5">عليك للموردين: 0 دج</p>
+                </div>
+            </div>
+
+            <!-- الرسم البياني البسيط + نصيحة محاسبية ذكية -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- الرسم البياني لتوزيع المداخيل والمصاريف والربح -->
+                <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-5">
+                        <div>
+                            <h2 class="text-lg font-extrabold text-slate-900">التوازن المالي للمشروع</h2>
+                            <p class="text-xs text-slate-500">مقارنة بصرية بين المبيعات، المصاريف التشغيلية، وصافي الربح المتبقي</p>
+                        </div>
+                        <span id="health-status-badge" class="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                            بانتظار تسجيل أول عملية
+                        </span>
+                    </div>
+
+                    <!-- أشرطة بيانية تفاعلية -->
+                    <div class="space-y-5">
+                        <!-- شريط المبيعات -->
+                        <div>
+                            <div class="flex justify-between text-sm font-bold mb-1.5">
+                                <span class="text-slate-700 flex items-center gap-2">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                                    إجمالي المبيعات (المداخيل)
+                                </span>
+                                <span id="chart-sales-val" class="text-emerald-700">0 دج</span>
+                            </div>
+                            <div class="w-full h-4 bg-slate-100 rounded-full overflow-hidden">
+                                <div id="chart-sales-bar" class="h-full bg-emerald-500 rounded-full transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <!-- شريط المصاريف -->
+                        <div>
+                            <div class="flex justify-between text-sm font-bold mb-1.5">
+                                <span class="text-slate-700 flex items-center gap-2">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                                    إجمالي المصاريف والمسحوبات
+                                </span>
+                                <span id="chart-expenses-val" class="text-rose-700">0 دج</span>
+                            </div>
+                            <div class="w-full h-4 bg-slate-100 rounded-full overflow-hidden">
+                                <div id="chart-expenses-bar" class="h-full bg-rose-500 rounded-full transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <!-- شريط صافي الربح -->
+                        <div>
+                            <div class="flex justify-between text-sm font-bold mb-1.5">
+                                <span class="text-slate-700 flex items-center gap-2">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+                                    صافي الربح الفعلي
+                                </span>
+                                <span id="chart-profit-val" class="text-indigo-700">0 دج</span>
+                            </div>
+                            <div class="w-full h-4 bg-slate-100 rounded-full overflow-hidden">
+                                <div id="chart-profit-bar" class="h-full bg-indigo-600 rounded-full transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- شريط تفصيل فئات المصاريف -->
+                    <div class="mt-6 pt-5 border-t border-slate-100">
+                        <h3 class="text-xs font-bold text-slate-500 mb-3">توزيع المصاريف حسب الفئة:</h3>
+                        <div id="expense-breakdown-pills" class="flex flex-wrap gap-2">
+                            <!-- يمتلئ ديناميكياً -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- بطاقة التنبيهات المحاسبية السريعة -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center gap-2 text-indigo-700 font-extrabold mb-3">
+                            <i data-lucide="sparkles" class="w-5 h-5"></i>
+                            <h2>مؤشرات سريعة لمشروعك</h2>
+                        </div>
+                        <div id="smart-insights" class="space-y-3 text-sm text-slate-600">
+                            <!-- يتم توليدها تلقائياً بناء على الأرقام -->
+                        </div>
+                    </div>
+
+                    <div class="mt-6 pt-4 border-t border-slate-100 flex flex-col gap-2">
+                        <button onclick="switchTab('transactions')" class="w-full py-2.5 px-4 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-sm transition flex items-center justify-center gap-2">
+                            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                            تسجيل عملية بيع أو مصروف
+                        </button>
+                        <button onclick="switchTab('credits')" class="w-full py-2.5 px-4 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-sm transition flex items-center justify-center gap-2">
+                            <i data-lucide="user-plus" class="w-4 h-4"></i>
+                            إضافة دين جديد (كريدي)
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- آخر العمليات المسجلة -->
+            <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+                    <h2 class="text-lg font-extrabold text-slate-900">آخر العمليات المسجلة</h2>
+                    <button onclick="switchTab('transactions')" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                        عرض السجل الكامل
+                        <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-right text-sm">
+                        <thead class="bg-slate-50 text-slate-500 font-bold border-b border-slate-100">
+                            <tr>
+                                <th class="py-3 px-4">النوع</th>
+                                <th class="py-3 px-4">الوصف</th>
+                                <th class="py-3 px-4">التاريخ</th>
+                                <th class="py-3 px-4">المبلغ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dash-recent-tx" class="divide-y divide-slate-100">
+                            <!-- يمتلئ ديناميكياً -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 2. قسم سجل العمليات (Transactions)         -->
+        <!-- ========================================== -->
+        <section id="view-transactions" class="hidden space-y-6 fade-in">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- نموذج إضافة عملية جديدة -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm h-fit">
+                    <h2 class="text-lg font-extrabold text-slate-900 mb-1 flex items-center gap-2">
+                        <i data-lucide="plus-square" class="w-5 h-5 text-indigo-600"></i>
+                        تسجيل عملية جديدة
+                    </h2>
+                    <p class="text-xs text-slate-500 mb-5">سجّل مبيعاتك ومصاريفك يومياً لمعرفة ربحك الحقيقي</p>
+
+                    <form id="tx-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1.5">نوع العملية</label>
+                            <select id="tx-type" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm font-medium">
+                                <option value="sale">🟢 مبيعات / مدخول (+)</option>
+                                <option value="materials">🔴 مصروف مواد أولية / بضاعة (-)</option>
+                                <option value="packaging">🟠 تغليف وملصقات (-)</option>
+                                <option value="ads">🟣 إعلانات وتسويق (-)</option>
+                                <option value="shipping">🔵 توصيل ومرتجعات Retours (-)</option>
+                                <option value="withdrawal">⚪ مسحوبات شخصية للمالك (-)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1.5">المبلغ (دج)</label>
+                            <input type="number" id="tx-amount" min="1" step="any" required placeholder="مثال: 4500" dir="ltr" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-left font-bold text-base">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1.5">الوصف / البيان</label>
+                            <input type="text" id="tx-desc" required placeholder="مثال: بيع طلبية أو شراء مستلزمات" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1.5">التاريخ</label>
+                            <input type="date" id="tx-date" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm">
+                        </div>
+
+                        <button type="submit" class="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-md shadow-indigo-200 transition flex items-center justify-center gap-2">
+                            <i data-lucide="check" class="w-4 h-4"></i>
+                            حفظ العملية في السجل
+                        </button>
+                    </form>
+                </div>
+
+                <!-- جدول العمليات مع التصفية -->
+                <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col">
+                    <div class="p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h2 class="text-lg font-extrabold text-slate-900">سجل المبيعات والمصاريف</h2>
+                            <p id="tx-count-label" class="text-xs text-slate-500">0 عملية مسجلة</p>
+                        </div>
+
+                        <!-- شريط التصفية والبحث -->
+                        <div class="flex flex-wrap items-center gap-2">
+                            <input type="text" id="tx-search" oninput="renderTransactions()" placeholder="بحث بالوصف..." class="px-3 py-2 rounded-xl border border-slate-200 text-xs outline-none focus:border-indigo-500 w-36 sm:w-44">
+                            <select id="tx-filter" onchange="renderTransactions()" class="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500">
+                                <option value="all">كل العمليات</option>
+                                <option value="sale">المبيعات فقط</option>
+                                <option value="expenses_all">كل المصاريف</option>
+                                <option value="materials">مواد أولية</option>
+                                <option value="packaging">تغليف</option>
+                                <option value="ads">إعلانات</option>
+                                <option value="shipping">توصيل ومرتجعات</option>
+                                <option value="withdrawal">مسحوبات شخصية</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto flex-1">
+                        <table class="w-full text-right text-sm">
+                            <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200/70">
+                                <tr>
+                                    <th class="py-3.5 px-4">الفئة</th>
+                                    <th class="py-3.5 px-4">الوصف</th>
+                                    <th class="py-3.5 px-4">التاريخ</th>
+                                    <th class="py-3.5 px-4">التأثير على الربح</th>
+                                    <th class="py-3.5 px-4 text-center">إجراء</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tx-table-body" class="divide-y divide-slate-100">
+                                <!-- يمتلئ ديناميكياً -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 3. قسم دفتر الديون "الكريدي" (Credits)      -->
+        <!-- ========================================== -->
+        <section id="view-credits" class="hidden space-y-6 fade-in">
+            
+            <!-- شريط ملخص الديون -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-emerald-50/80 border border-emerald-200/80 p-4 rounded-2xl flex items-center justify-between">
+                    <div>
+                        <span class="text-xs font-bold text-emerald-800 block">أموال لي عند الزبائن (Créances)</span>
+                        <span id="cred-total-receivable" class="text-xl font-extrabold text-emerald-700 mt-1 block">0 دج</span>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                        <i data-lucide="arrow-down-left" class="w-5 h-5"></i>
+                    </div>
+                </div>
+
+                <div class="bg-rose-50/80 border border-rose-200/80 p-4 rounded-2xl flex items-center justify-between">
+                    <div>
+                        <span class="text-xs font-bold text-rose-800 block">ديون عليّ للموردين (Dettes)</span>
+                        <span id="cred-total-payable" class="text-xl font-extrabold text-rose-700 mt-1 block">0 دج</span>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center">
+                        <i data-lucide="arrow-up-right" class="w-5 h-5"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white border border-slate-200/80 p-4 rounded-2xl flex items-center justify-between">
+                    <div>
+                        <span class="text-xs font-bold text-slate-500 block">صافي رصيد الديون</span>
+                        <span id="cred-net-balance" class="text-xl font-extrabold text-slate-900 mt-1 block">0 دج</span>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                        <i data-lucide="scale" class="w-5 h-5"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- نموذج إضافة دين جديد -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm h-fit">
+                    <h2 class="text-lg font-extrabold text-slate-900 mb-1 flex items-center gap-2">
+                        <i data-lucide="book-plus" class="w-5 h-5 text-indigo-600"></i>
+                        تسجيل دين جديد (كريدي)
+                    </h2>
+                    <p class="text-xs text-slate-500 mb-5">احفظ حقوقك مع الزبائن وتابع التزاماتك مع الموردين</p>
+
+                    <form id="credit-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1.5">نوع الدين</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="cred-type" value="receivable" checked class="peer sr-only">
+                                    <div class="p-2.5 text-center rounded-xl border border-slate-200 peer-checked:border-emerald-600 peer-checked:bg-emerald-50 peer-checked:text-emerald-800 text-xs font-bold transition">
+                                        لي عند الزبون (+)
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="cred-type" value="payable" class="peer sr-only">
+                                    <div class="p-2.5 text-center rounded-xl border border-slate-200 peer-checked:border-rose-600 peer-checked:bg-rose-50 peer-checked:text-rose-800 text-xs font-bold transition">
+                                        عليّ للمورد (-)
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1.5">اسم الزبون أو المورد</label>
+                            <input type="text" id="cred-name" required placeholder="أدخل الاسم الكامل" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1.5">رقم الهاتف (للتذكير عبر واتساب)</label>
+                            <input type="tel" id="cred-phone" placeholder="0550123456" dir="ltr" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-left text-sm">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1.5">المبلغ الإجمالي (دج)</label>
+                            <input type="number" id="cred-amount" min="1" step="any" required placeholder="مثال: 6500" dir="ltr" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-left font-bold">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1.5">ملاحظة / تفاصيل السلعة</label>
+                            <input type="text" id="cred-note" placeholder="تفاصيل الطلبية أو موعد السداد" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                        </div>
+
+                        <button type="submit" class="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-md shadow-indigo-200 transition flex items-center justify-center gap-2">
+                            <i data-lucide="save" class="w-4 h-4"></i>
+                            إضافة إلى دفتر الديون
+                        </button>
+                    </form>
+                </div>
+
+                <!-- قائمة الديون -->
+                <div class="lg:col-span-2 space-y-4">
+                    <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex flex-wrap items-center justify-between gap-3">
+                        <div class="flex items-center gap-2">
+                            <button onclick="setCreditFilter('all')" id="cfilter-all" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition">الكل</button>
+                            <button onclick="setCreditFilter('receivable')" id="cfilter-receivable" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">عند الزبائن</button>
+                            <button onclick="setCreditFilter('payable')" id="cfilter-payable" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">للموردين</button>
+                        </div>
+                        <input type="text" id="cred-search" oninput="renderCredits()" placeholder="ابحث بالاسم..." class="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs outline-none focus:border-indigo-500 w-44">
+                    </div>
+
+                    <div id="credits-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- بطاقات الديون تمتلىء ديناميكياً -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 4. قسم حاسبة التكلفة والتسعير الذكية         -->
+        <!-- ========================================== -->
+        <section id="view-pricing" class="hidden space-y-6 fade-in">
+            <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
+                <div class="max-w-2xl mb-6">
+                    <h2 class="text-xl font-extrabold text-slate-900 flex items-center gap-2">
+                        <i data-lucide="calculator" class="w-6 h-6 text-indigo-600"></i>
+                        حاسبة التكلفة والتسعير الذكية للمنتجات
+                    </h2>
+                    <p class="text-sm text-slate-500 mt-1">
+                        أدخل تكاليف منتجك أدناه لحساب السعر العادل والمربح مع مراعاة التغليف، الإعلانات، والطرود المرتجعة (Retours).
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    <!-- مدخلات التكلفة (تبدأ فارغة ليملأها المستخدم بنفسه) -->
+                    <div class="lg:col-span-7 space-y-4">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1">اسم المنتج (اختياري)</label>
+                            <input type="text" id="calc-product-name" placeholder="أدخل اسم المنتج..." class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-sm">
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">تكلفة المواد الأولية / الشراء للقطعة (دج)</label>
+                                <input type="number" id="calc-material" value="" min="0" placeholder="0" oninput="calculatePricing()" dir="ltr" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-left font-bold">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">تكلفة التغليف والملصقات للقطعة (دج)</label>
+                                <input type="number" id="calc-packaging" value="" min="0" placeholder="0" oninput="calculatePricing()" dir="ltr" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-left font-bold">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">تكلفة الإعلان / التوصيل المدفوع للقطعة (دج)</label>
+                                <input type="number" id="calc-ads" value="" min="0" placeholder="0" oninput="calculatePricing()" dir="ltr" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-left font-bold">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">قيمة جهدك / اليد العاملة للقطعة (دج)</label>
+                                <input type="number" id="calc-labor" value="" min="0" placeholder="0" oninput="calculatePricing()" dir="ltr" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-left font-bold">
+                            </div>
+                        </div>
+
+                        <!-- شريط نسبة المرتجعات المتوقعة -->
+                        <div class="bg-amber-50/70 p-4 rounded-xl border border-amber-200/80">
+                            <div class="flex justify-between items-center mb-1.5">
+                                <label class="text-sm font-bold text-amber-900">نسبة المرتجعات المتوقعة (Retours %)</label>
+                                <span id="calc-return-rate-label" class="px-2.5 py-0.5 rounded-lg bg-amber-200/80 text-amber-950 font-extrabold text-sm">0%</span>
+                            </div>
+                            <input type="range" id="calc-return-rate" min="0" max="50" value="0" oninput="calculatePricing()" class="w-full accent-amber-600 cursor-pointer">
+                            <p class="text-xs text-amber-800 mt-1">حرّك المؤشر لتقدير نسبة الطلبيات التي قد تعود دون استلام (في التجارة الإلكترونية تتراوح عادة بين 10% و 25%).</p>
+                        </div>
+
+                        <!-- شريط هامش الربح المستهدف -->
+                        <div class="bg-indigo-50/70 p-4 rounded-xl border border-indigo-200/80">
+                            <div class="flex justify-between items-center mb-1.5">
+                                <label class="text-sm font-bold text-indigo-900">هامش الربح الصافي المستهدف (%)</label>
+                                <span id="calc-margin-label" class="px-2.5 py-0.5 rounded-lg bg-indigo-600 text-white font-extrabold text-sm">30%</span>
+                            </div>
+                            <input type="range" id="calc-margin" min="0" max="150" value="30" oninput="calculatePricing()" class="w-full accent-indigo-600 cursor-pointer">
+                        </div>
+                    </div>
+
+                    <!-- بطاقة النتائج الفورية -->
+                    <div class="lg:col-span-5">
+                        <div class="bg-slate-900 text-white p-6 rounded-2xl shadow-lg space-y-5 sticky top-28">
+                            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                                <span class="text-sm font-bold text-slate-300">ملخص التسعير المحاسبي</span>
+                                <span class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-bold">تحديث فوري</span>
+                            </div>
+
+                            <div class="space-y-3 text-sm">
+                                <div class="flex justify-between text-slate-300">
+                                    <span>التكلفة المباشرة للقطعة:</span>
+                                    <span id="res-base-cost" class="font-bold text-white">0 دج</span>
+                                </div>
+                                <div class="flex justify-between text-amber-300">
+                                    <span>مخصص تغطية المرتجعات والإعلانات الضائعة:</span>
+                                    <span id="res-return-buffer" class="font-bold">+ 0 دج</span>
+                                </div>
+                                <div class="flex justify-between text-base font-extrabold pt-2 border-t border-slate-800">
+                                    <span class="text-slate-200">التكلفة الحقيقية الإجمالية:</span>
+                                    <span id="res-true-cost" class="text-rose-400">0 دج</span>
+                                </div>
+                            </div>
+
+                            <!-- السعر المقترح -->
+                            <div class="bg-gradient-to-br from-indigo-600 to-violet-600 p-5 rounded-2xl text-center shadow-inner">
+                                <span class="text-xs font-bold text-indigo-100 block mb-1">سعر البيع المقترح للزبون</span>
+                                <div id="res-suggested-price" class="text-3xl font-extrabold tracking-tight text-white">0 دج</div>
+                            </div>
+
+                            <!-- صافي الربح لكل قطعة -->
+                            <div class="bg-emerald-500/15 border border-emerald-500/30 p-4 rounded-xl flex items-center justify-between">
+                                <div>
+                                    <span class="text-xs text-emerald-300 block">صافي الربح الفعلي لكل قطعة</span>
+                                    <span class="text-[11px] text-slate-400">بعد خصم جميع التكاليف والمخاطر</span>
+                                </div>
+                                <div id="res-net-profit" class="text-xl font-extrabold text-emerald-400">0 دج</div>
+                            </div>
+
+                            <button onclick="copyPricingResult()" class="w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition flex items-center justify-center gap-2">
+                                <i data-lucide="copy" class="w-4 h-4"></i>
+                                نسخ بطاقة تسعير هذا المنتج
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- تذييل الصفحة -->
+    <footer class="bg-white border-t border-slate-200/80 py-4 mt-8">
+        <div class="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+            <p><strong>ميزاني</strong> — أداة إدارة مالية مبسطة للمشاريع الصغيرة والحرفية والتجارة الإلكترونية.</p>
+            <p class="flex items-center gap-1 text-emerald-700 font-medium">
+                <i data-lucide="shield-check" class="w-4 h-4"></i>
+                جميع بياناتك محفوظة بأمان محلياً على جهازك
+            </p>
+        </div>
+    </footer>
+
+    <!-- المنطق البرمجي للتطبيق -->
+    <script>
+        // ==========================================
+        // 1. إدارة الحالة والبيانات (State Management)
+        // ==========================================
+        const STORAGE_KEY_TX = 'mizani_transactions_v2';
+        const STORAGE_KEY_CREDITS = 'mizani_credits_v2';
+
+        // يبدأ التطبيق فارغاً تماماً ليمتلئ ببيانات المستخدم الخاصة
+        let transactions = [];
+        let credits = [];
+        let creditFilter = 'all';
+
+        // تحميل البيانات من localStorage (فارغة افتراضياً عند أول استخدام)
+        function loadData() {
+            try {
+                const rawTx = localStorage.getItem(STORAGE_KEY_TX);
+                const rawCr = localStorage.getItem(STORAGE_KEY_CREDITS);
+
+                transactions = rawTx ? (JSON.parse(rawTx) || []) : [];
+                credits = rawCr ? (JSON.parse(rawCr) || []) : [];
+            } catch (e) {
+                console.error('خطأ في قراءة التخزين المحلي:', e);
+                transactions = [];
+                credits = [];
+            }
+        }
+
+        // حفظ البيانات في localStorage
+        function saveData() {
+            try {
+                localStorage.setItem(STORAGE_KEY_TX, JSON.stringify(transactions));
+                localStorage.setItem(STORAGE_KEY_CREDITS, JSON.stringify(credits));
+            } catch (e) {
+                showToast('تعذر حفظ البيانات في المتصفح', 'error');
+            }
+        }
+
+        // ==========================================
+        // 2. دوال مساعدة للتنسيق والتنبيهات
+        // ==========================================
+        function formatDZD(amount) {
+            const num = Number(amount) || 0;
+            return num.toLocaleString('ar-DZ', { maximumFractionDigits: 0 }) + ' دج';
+        }
+
+        // إشعارات عائمة أنيقة بدلاً من alert()
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const styles = {
+                success: 'bg-slate-900 text-white border-emerald-500',
+                error: 'bg-rose-600 text-white border-rose-800',
+                info: 'bg-indigo-600 text-white border-indigo-800'
+            };
+            toast.className = `${styles[type] || styles.success} px-4 py-3 rounded-xl shadow-lg border-r-4 text-sm font-bold flex items-center justify-between gap-3 pointer-events-auto fade-in`;
+            toast.innerHTML = `<span>${message}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // نافذة تأكيد مخصصة بدلاً من confirm()
+        function showConfirmModal(title, message, onConfirm) {
+            const modal = document.getElementById('confirm-modal');
+            document.getElementById('confirm-title').textContent = title;
+            document.getElementById('confirm-message').textContent = message;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            const cleanup = () => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            };
+
+            document.getElementById('confirm-cancel').onclick = cleanup;
+            document.getElementById('confirm-ok').onclick = () => {
+                cleanup();
+                onConfirm();
+            };
+        }
+
+        // ==========================================
+        // 3. التنقل بين التبويبات (Navigation)
+        // ==========================================
+        function switchTab(tabName) {
+            const tabs = ['dashboard', 'transactions', 'credits', 'pricing'];
+            tabs.forEach(t => {
+                const view = document.getElementById(`view-${t}`);
+                const btn = document.getElementById(`tab-btn-${t}`);
+                if (t === tabName) {
+                    view.classList.remove('hidden');
+                    btn.classList.remove('tab-inactive', 'border-slate-200/80');
+                    btn.classList.add('tab-active', 'border-transparent');
+                } else {
+                    view.classList.add('hidden');
+                    btn.classList.remove('tab-active', 'border-transparent');
+                    btn.classList.add('tab-inactive', 'border-slate-200/80');
+                }
+            });
+
+            if (tabName === 'dashboard') renderDashboard();
+            if (tabName === 'transactions') renderTransactions();
+            if (tabName === 'credits') renderCredits();
+            if (tabName === 'pricing') calculatePricing();
+            lucide.createIcons();
+        }
+
+        // ==========================================
+        // 4. منطق لوحة التحكم (Dashboard)
+        // ==========================================
+        const TX_META = {
+            sale: { label: 'مبيعات', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', sign: '+', color: 'text-emerald-600' },
+            materials: { label: 'مواد أولية', badge: 'bg-rose-50 text-rose-700 border-rose-200', sign: '-', color: 'text-rose-600' },
+            packaging: { label: 'تغليف', badge: 'bg-amber-50 text-amber-700 border-amber-200', sign: '-', color: 'text-rose-600' },
+            ads: { label: 'إعلانات', badge: 'bg-purple-50 text-purple-700 border-purple-200', sign: '-', color: 'text-rose-600' },
+            shipping: { label: 'توصيل ومرتجعات', badge: 'bg-sky-50 text-sky-700 border-sky-200', sign: '-', color: 'text-rose-600' },
+            withdrawal: { label: 'مسحوبات شخصية', badge: 'bg-slate-100 text-slate-700 border-slate-300', sign: '-', color: 'text-slate-600' }
+        };
+
+        function renderDashboard() {
+            let totalSales = 0;
+            let totalExpenses = 0;
+            let totalWithdrawals = 0;
+            const catTotals = { materials: 0, packaging: 0, ads: 0, shipping: 0, withdrawal: 0 };
+
+            transactions.forEach(tx => {
+                const amt = Number(tx.amount) || 0;
+                if (tx.type === 'sale') {
+                    totalSales += amt;
+                } else {
+                    totalExpenses += amt;
+                    if (tx.type === 'withdrawal') totalWithdrawals += amt;
+                    if (catTotals[tx.type] !== undefined) catTotals[tx.type] += amt;
+                }
+            });
+
+            const netProfit = totalSales - totalExpenses;
+            const profitMargin = totalSales > 0 ? Math.round((netProfit / totalSales) * 100) : 0;
+
+            // حساب الكريدي العالق
+            let totalReceivable = 0;
+            let totalPayable = 0;
+            credits.forEach(c => {
+                const rem = Math.max(0, Number(c.totalAmount) - Number(c.paidAmount));
+                if (c.type === 'receivable') totalReceivable += rem;
+                else totalPayable += rem;
+            });
+
+            // تحديث البطاقات الأربع
+            document.getElementById('dash-sales').textContent = formatDZD(totalSales);
+            document.getElementById('dash-expenses').textContent = formatDZD(totalExpenses);
+            document.getElementById('dash-withdrawals-note').textContent = totalWithdrawals > 0
+                ? `منها مسحوبات شخصية: ${formatDZD(totalWithdrawals)}`
+                : 'تشمل التشغيل والتوصيل والإعلانات';
+
+            const profitEl = document.getElementById('dash-net-profit');
+            profitEl.textContent = formatDZD(netProfit);
+            document.getElementById('dash-margin-badge').textContent = `هامش الربح الصافي: ${profitMargin}%`;
+
+            document.getElementById('dash-receivables').textContent = formatDZD(totalReceivable);
+            document.getElementById('dash-payables-note').textContent = `ديون عليك للموردين: ${formatDZD(totalPayable)}`;
+
+            // تحديث الرسم البياني بالأشرطة
+            const maxVal = Math.max(totalSales, totalExpenses, Math.abs(netProfit), 1);
+            document.getElementById('chart-sales-val').textContent = formatDZD(totalSales);
+            document.getElementById('chart-expenses-val').textContent = formatDZD(totalExpenses);
+            document.getElementById('chart-profit-val').textContent = formatDZD(netProfit);
+
+            document.getElementById('chart-sales-bar').style.width = totalSales > 0 ? `${Math.min(100, (totalSales / maxVal) * 100)}%` : '0%';
+            document.getElementById('chart-expenses-bar').style.width = totalExpenses > 0 ? `${Math.min(100, (totalExpenses / maxVal) * 100)}%` : '0%';
+            document.getElementById('chart-profit-bar').style.width = netProfit > 0 ? `${Math.min(100, (netProfit / maxVal) * 100)}%` : '0%';
+
+            // شارة الحالة الصحية
+            const healthBadge = document.getElementById('health-status-badge');
+            if (transactions.length === 0) {
+                healthBadge.className = 'text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200';
+                healthBadge.textContent = 'بانتظار تسجيل أول عملية';
+            } else if (netProfit < 0) {
+                healthBadge.className = 'text-xs font-bold px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200';
+                healthBadge.textContent = 'تنبيه: المصاريف تتجاوز المبيعات';
+            } else if (profitMargin < 15 && totalSales > 0) {
+                healthBadge.className = 'text-xs font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200';
+                healthBadge.textContent = 'هامش ربح منخفض - راجع التسعير';
+            } else {
+                healthBadge.className = 'text-xs font-bold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200';
+                healthBadge.textContent = 'وضع مالي متوازن';
+            }
+
+            // تفصيل المصاريف حسب الفئة
+            const pillsContainer = document.getElementById('expense-breakdown-pills');
+            pillsContainer.innerHTML = Object.entries(catTotals).map(([key, val]) => {
+                const meta = TX_META[key];
+                return `<span class="text-xs px-3 py-1.5 rounded-xl border ${meta.badge} font-bold">
+                    ${meta.label}: ${formatDZD(val)}
+                </span>`;
+            }).join('');
+
+            // مؤشرات وتنبيهات محاسبية ذكية
+            const insightsEl = document.getElementById('smart-insights');
+            const tips = [];
+            if (transactions.length === 0 && credits.length === 0) {
+                tips.push(`<div class="p-3 rounded-xl bg-indigo-50/70 border border-indigo-200/70 text-indigo-950 text-xs leading-relaxed">
+                    <strong>مرحباً بك في ميزاني!</strong> التطبيق جاهز ومفرغ بالكامل. ابدأ بتسجيل أول عملية بيع أو مصروف أو أضف ديونك في دفتر الكريدي.
+                </div>`);
+            } else {
+                if (totalReceivable > totalSales * 0.4 && totalReceivable > 0) {
+                    tips.push(`<div class="p-3 rounded-xl bg-amber-50 border border-amber-200/70 text-amber-900 text-xs leading-relaxed">
+                        <strong>تنبيه السيولة:</strong> لديك <b>${formatDZD(totalReceivable)}</b> عالقة ككريدي عند الزبائن. استخدم زر التذكير عبر واتساب لتسريع التحصيل.
+                    </div>`);
+                }
+                if (totalWithdrawals > 0) {
+                    tips.push(`<div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-xs leading-relaxed">
+                        <strong>فصل الذمة المالية:</strong> قمت بتسجيل مسحوبات شخصية بقيمة <b>${formatDZD(totalWithdrawals)}</b>. تذكر ألا تتجاوز مسحوباتك صافي الربح.
+                    </div>`);
+                }
+                if (tips.length === 0) {
+                    tips.push(`<div class="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200/70 text-emerald-900 text-xs leading-relaxed">
+                        <strong>أداء جيد:</strong> استمر في تسجيل كل عملية بيع ومصروف يومياً للحفاظ على دقة أرقامك.
+                    </div>`);
+                }
+            }
+            insightsEl.innerHTML = tips.join('');
+
+            // آخر 5 عمليات
+            const recentBody = document.getElementById('dash-recent-tx');
+            const sorted = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+            if (sorted.length === 0) {
+                recentBody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-slate-400">لا توجد عمليات مسجلة بعد — أضف أول عملية من تبويب "سجل العمليات"</td></tr>`;
+            } else {
+                recentBody.innerHTML = sorted.map(tx => {
+                    const meta = TX_META[tx.type] || TX_META.sale;
+                    return `<tr class="hover:bg-slate-50/80 transition">
+                        <td class="py-3 px-4"><span class="text-xs font-bold px-2.5 py-1 rounded-lg border ${meta.badge}">${meta.label}</span></td>
+                        <td class="py-3 px-4 font-medium text-slate-800">${escapeHtml(tx.desc)}</td>
+                        <td class="py-3 px-4 text-xs text-slate-500">${tx.date}</td>
+                        <td class="py-3 px-4 font-extrabold ${meta.color}" dir="ltr">${meta.sign} ${formatDZD(tx.amount)}</td>
+                    </tr>`;
+                }).join('');
+            }
+        }
+
+        // ==========================================
+        // 5. منطق سجل العمليات (Transactions)
+        // ==========================================
+        document.getElementById('tx-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const type = document.getElementById('tx-type').value;
+            const amount = parseFloat(document.getElementById('tx-amount').value);
+            const desc = document.getElementById('tx-desc').value.trim();
+            const date = document.getElementById('tx-date').value;
+
+            if (!amount || amount <= 0 || !desc || !date) return;
+
+            transactions.unshift({
+                id: 'tx-' + Date.now(),
+                type,
+                amount,
+                desc,
+                date
+            });
+
+            saveData();
+            this.reset();
+            document.getElementById('tx-date').value = new Date().toISOString().split('T')[0];
+            renderTransactions();
+            renderDashboard();
+            showToast('تم تسجيل العملية بنجاح');
+        });
+
+        function renderTransactions() {
+            const filter = document.getElementById('tx-filter').value;
+            const query = document.getElementById('tx-search').value.trim().toLowerCase();
+
+            const filtered = transactions
+                .filter(tx => {
+                    if (filter === 'all') return true;
+                    if (filter === 'expenses_all') return tx.type !== 'sale';
+                    return tx.type === filter;
+                })
+                .filter(tx => tx.desc.toLowerCase().includes(query))
+                .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            document.getElementById('tx-count-label').textContent = `${filtered.length} عملية مسجلة`;
+
+            const tbody = document.getElementById('tx-table-body');
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-10 text-center text-slate-400">لا توجد عمليات مسجلة بعد</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(tx => {
+                const meta = TX_META[tx.type] || TX_META.sale;
+                return `<tr class="hover:bg-slate-50 transition">
+                    <td class="py-3.5 px-4 whitespace-nowrap">
+                        <span class="text-xs font-bold px-2.5 py-1 rounded-lg border ${meta.badge}">${meta.label}</span>
+                    </td>
+                    <td class="py-3.5 px-4 font-medium text-slate-800">${escapeHtml(tx.desc)}</td>
+                    <td class="py-3.5 px-4 text-xs text-slate-500 whitespace-nowrap">${tx.date}</td>
+                    <td class="py-3.5 px-4 font-extrabold whitespace-nowrap ${meta.color}" dir="ltr">${meta.sign} ${formatDZD(tx.amount)}</td>
+                    <td class="py-3.5 px-4 text-center">
+                        <button onclick="deleteTransaction('${tx.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="حذف العملية">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                </tr>`;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function deleteTransaction(id) {
+            showConfirmModal('حذف عملية', 'هل أنت متأكد من حذف هذه العملية من السجل؟ سيتم تحديث الأرباح تلقائياً.', () => {
+                transactions = transactions.filter(t => t.id !== id);
+                saveData();
+                renderTransactions();
+                renderDashboard();
+                showToast('تم حذف العملية', 'info');
+            });
+        }
+
+        // ==========================================
+        // 6. منطق دفتر الديون "الكريدي" (Credits)
+        // ==========================================
+        document.getElementById('credit-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const type = document.querySelector('input[name="cred-type"]:checked').value;
+            const name = document.getElementById('cred-name').value.trim();
+            const phone = document.getElementById('cred-phone').value.trim();
+            const totalAmount = parseFloat(document.getElementById('cred-amount').value);
+            const note = document.getElementById('cred-note').value.trim();
+
+            if (!name || !totalAmount || totalAmount <= 0) return;
+
+            credits.unshift({
+                id: 'cr-' + Date.now(),
+                type,
+                name,
+                phone,
+                totalAmount,
+                paidAmount: 0,
+                note: note || 'بدون ملاحظة',
+                date: new Date().toISOString().split('T')[0]
+            });
+
+            saveData();
+            this.reset();
+            renderCredits();
+            renderDashboard();
+            showToast('تمت إضافة الدين إلى الدفتر بنجاح');
+        });
+
+        function setCreditFilter(val) {
+            creditFilter = val;
+            ['all', 'receivable', 'payable'].forEach(k => {
+                const btn = document.getElementById(`cfilter-${k}`);
+                if (k === val) {
+                    btn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition';
+                } else {
+                    btn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition';
+                }
+            });
+            renderCredits();
+        }
+
+        function renderCredits() {
+            let totalRec = 0;
+            let totalPay = 0;
+
+            credits.forEach(c => {
+                const rem = Math.max(0, Number(c.totalAmount) - Number(c.paidAmount));
+                if (c.type === 'receivable') totalRec += rem;
+                else totalPay += rem;
+            });
+
+            document.getElementById('cred-total-receivable').textContent = formatDZD(totalRec);
+            document.getElementById('cred-total-payable').textContent = formatDZD(totalPay);
+            document.getElementById('cred-net-balance').textContent = formatDZD(totalRec - totalPay);
+
+            const query = document.getElementById('cred-search').value.trim().toLowerCase();
+            const filtered = credits
+                .filter(c => creditFilter === 'all' || c.type === creditFilter)
+                .filter(c => c.name.toLowerCase().includes(query));
+
+            const container = document.getElementById('credits-list');
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="col-span-full bg-white p-10 rounded-2xl border border-slate-200/80 text-center text-slate-400 text-sm">
+                    لا توجد ديون مسجلة حالياً — أضف أول سجل من النموذج الجانبي
+                </div>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map(c => {
+                const remaining = Math.max(0, Number(c.totalAmount) - Number(c.paidAmount));
+                const isSettled = remaining === 0;
+                const progress = Math.min(100, Math.round((Number(c.paidAmount) / Number(c.totalAmount)) * 100));
+                const isRec = c.type === 'receivable';
+
+                return `<div class="bg-white p-5 rounded-2xl border ${isSettled ? 'border-slate-200 opacity-75' : (isRec ? 'border-emerald-200/90' : 'border-rose-200/90')} shadow-sm flex flex-col justify-between gap-4">
+                    <div>
+                        <div class="flex items-start justify-between gap-2 mb-2">
+                            <div>
+                                <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full ${isRec ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}">
+                                    ${isRec ? 'لي عند الزبون' : 'عليّ للمورد'}
+                                </span>
+                                <h3 class="text-base font-extrabold text-slate-900 mt-1.5">${escapeHtml(c.name)}</h3>
+                            </div>
+                            <button onclick="deleteCredit('${c.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="حذف">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+
+                        <p class="text-xs text-slate-500 mb-3">${escapeHtml(c.note)} • <span class="text-slate-400">${c.date}</span></p>
+
+                        <!-- تفاصيل المبلغ وشريط السداد -->
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-2">
+                            <div class="flex justify-between text-xs">
+                                <span class="text-slate-500">المبلغ الكلي: <b>${formatDZD(c.totalAmount)}</b></span>
+                                <span class="text-slate-500">المدفوع: <b>${formatDZD(c.paidAmount)}</b></span>
+                            </div>
+                            <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                                <div class="h-full ${isRec ? 'bg-emerald-500' : 'bg-indigo-600'} transition-all" style="width: ${progress}%"></div>
+                            </div>
+                            <div class="flex justify-between items-center pt-1">
+                                <span class="text-xs font-bold text-slate-600">المتبقي:</span>
+                                <span class="text-base font-extrabold ${isSettled ? 'text-emerald-600' : (isRec ? 'text-emerald-700' : 'text-rose-700')}">
+                                    ${isSettled ? 'مُسدّد بالكامل ✓' : formatDZD(remaining)}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- أزرار التفاعل -->
+                    <div class="flex flex-wrap gap-2 pt-1">
+                        ${!isSettled ? `
+                        <button onclick="openPaymentModal('${c.id}')" class="flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition flex items-center justify-center gap-1.5">
+                            <i data-lucide="banknote" class="w-3.5 h-3.5"></i>
+                            تسجيل دفعة
+                        </button>` : ''}
+                        
+                        ${isRec && !isSettled ? `
+                        <button onclick="sendWhatsAppReminder('${c.id}')" class="py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-xs transition flex items-center justify-center gap-1.5" title="إرسال رسالة تذكير مهذبة عبر واتساب">
+                            <i data-lucide="message-circle" class="w-3.5 h-3.5 text-emerald-600"></i>
+                            تذكير واتساب
+                        </button>` : ''}
+                    </div>
+                </div>`;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        // نافذة السداد الجزئي أو الكلي
+        function openPaymentModal(id) {
+            const item = credits.find(c => c.id === id);
+            if (!item) return;
+            const remaining = Math.max(0, Number(item.totalAmount) - Number(item.paidAmount));
+            document.getElementById('pay-modal-id').value = id;
+            document.getElementById('pay-modal-name').textContent = item.name;
+            document.getElementById('pay-modal-remaining').textContent = formatDZD(remaining);
+            document.getElementById('pay-modal-amount').value = remaining;
+            document.getElementById('pay-modal-amount').max = remaining;
+
+            const modal = document.getElementById('payment-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closePaymentModal() {
+            const modal = document.getElementById('payment-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function fillFullPayment() {
+            const id = document.getElementById('pay-modal-id').value;
+            const item = credits.find(c => c.id === id);
+            if (!item) return;
+            const remaining = Math.max(0, Number(item.totalAmount) - Number(item.paidAmount));
+            document.getElementById('pay-modal-amount').value = remaining;
+        }
+
+        document.getElementById('payment-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const id = document.getElementById('pay-modal-id').value;
+            const payAmt = parseFloat(document.getElementById('pay-modal-amount').value);
+            const recordTx = document.getElementById('pay-modal-record-tx').checked;
+
+            const item = credits.find(c => c.id === id);
+            if (!item || !payAmt || payAmt <= 0) return;
+
+            const remaining = Math.max(0, Number(item.totalAmount) - Number(item.paidAmount));
+            const actualPay = Math.min(payAmt, remaining);
+            item.paidAmount = Number(item.paidAmount) + actualPay;
+
+            // تسجيل الدفعة تلقائياً في سجل العمليات إذا اختار المستخدم ذلك
+            if (recordTx) {
+                transactions.unshift({
+                    id: 'tx-' + Date.now(),
+                    type: item.type === 'receivable' ? 'sale' : 'materials',
+                    amount: actualPay,
+                    desc: item.type === 'receivable'
+                        ? `تحصيل دين (كريدي) من الزبون: ${item.name}`
+                        : `تسديد دفعة دين للمورد: ${item.name}`,
+                    date: new Date().toISOString().split('T')[0]
+                });
+            }
+
+            saveData();
+            closePaymentModal();
+            renderCredits();
+            renderDashboard();
+            showToast(`تم تسجيل دفعة بقيمة ${formatDZD(actualPay)}`);
+        });
+
+        // إرسال تذكير مهذب عبر واتساب
+        function sendWhatsAppReminder(id) {
+            const item = credits.find(c => c.id === id);
+            if (!item) return;
+            const remaining = Math.max(0, Number(item.totalAmount) - Number(item.paidAmount));
+
+            const message = `السلام عليكم ورحمة الله وبركاته أستاذ(ة) ${item.name}،\nنرجو أن تكونوا بخير وعافية. نود تذكيركم بلطف بخصوص الرصيد المتبقي لديكم بقيمة *${formatDZD(remaining)}* (${item.note}).\nشاكرين لكم حسن تعاونكم وثقتكم بنا.`;
+
+            let cleanPhone = (item.phone || '').replace(/\D/g, '');
+            if (cleanPhone.startsWith('0') && cleanPhone.length === 10) {
+                cleanPhone = '213' + cleanPhone.substring(1);
+            }
+
+            const url = cleanPhone
+                ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
+                : `https://wa.me/?text=${encodeURIComponent(message)}`;
+
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
+
+        function deleteCredit(id) {
+            showConfirmModal('حذف سجل الدين', 'هل تريد حذف هذا السجل نهائياً من دفتر الديون؟', () => {
+                credits = credits.filter(c => c.id !== id);
+                saveData();
+                renderCredits();
+                renderDashboard();
+                showToast('تم حذف سجل الدين', 'info');
+            });
+        }
+
+        // ==========================================
+        // 7. حاسبة التكلفة والتسعير الذكية
+        // ==========================================
+        function calculatePricing() {
+            const material = parseFloat(document.getElementById('calc-material').value) || 0;
+            const packaging = parseFloat(document.getElementById('calc-packaging').value) || 0;
+            const ads = parseFloat(document.getElementById('calc-ads').value) || 0;
+            const labor = parseFloat(document.getElementById('calc-labor').value) || 0;
+
+            const returnRate = parseFloat(document.getElementById('calc-return-rate').value) || 0;
+            const marginRate = parseFloat(document.getElementById('calc-margin').value) || 0;
+
+            document.getElementById('calc-return-rate-label').textContent = `${returnRate}%`;
+            document.getElementById('calc-margin-label').textContent = `${marginRate}%`;
+
+            // التكلفة المباشرة للقطعة
+            const baseCost = material + packaging + ads + labor;
+
+            // احتساب أثر المرتجعات
+            const deliveryRate = Math.max(0.1, (100 - returnRate) / 100);
+            const returnBuffer = returnRate > 0 ? ((ads + packaging * 0.5) * (1 / deliveryRate - 1)) : 0;
+
+            const trueCost = Math.round(baseCost + returnBuffer);
+            const suggestedPrice = Math.round(trueCost * (1 + marginRate / 100));
+            const netProfitPerUnit = suggestedPrice - trueCost;
+
+            document.getElementById('res-base-cost').textContent = formatDZD(baseCost);
+            document.getElementById('res-return-buffer').textContent = `+ ${formatDZD(Math.round(returnBuffer))}`;
+            document.getElementById('res-true-cost').textContent = formatDZD(trueCost);
+            document.getElementById('res-suggested-price').textContent = formatDZD(suggestedPrice);
+            document.getElementById('res-net-profit').textContent = formatDZD(netProfitPerUnit);
+        }
+
+        function copyPricingResult() {
+            const prodName = document.getElementById('calc-product-name').value.trim() || 'منتج المشروع';
+            const trueCost = document.getElementById('res-true-cost').textContent;
+            const price = document.getElementById('res-suggested-price').textContent;
+            const profit = document.getElementById('res-net-profit').textContent;
+
+            const text = `بطاقة تسعير: ${prodName}\n- التكلفة الحقيقية للقطعة: ${trueCost}\n- سعر البيع المقترح: ${price}\n- صافي الربح لكل قطعة: ${profit}`;
+            copyToClipboard(text, 'تم نسخ بطاقة تسعير المنتج');
+        }
+
+        // ==========================================
+        // 8. التصدير، النسخ الاحتياطي، وتصفير الكل
+        // ==========================================
+        function exportSummaryReport() {
+            let totalSales = 0;
+            let totalExpenses = 0;
+            transactions.forEach(t => {
+                if (t.type === 'sale') totalSales += Number(t.amount);
+                else totalExpenses += Number(t.amount);
+            });
+            const netProfit = totalSales - totalExpenses;
+
+            let totalRec = 0;
+            credits.forEach(c => {
+                if (c.type === 'receivable') totalRec += Math.max(0, Number(c.totalAmount) - Number(c.paidAmount));
+            });
+
+            const today = new Date().toLocaleDateString('ar-DZ');
+            const summary = `📊 ملخص حسابات المشروع (${today}) - تطبيق ميزاني\n` +
+                `• إجمالي المبيعات: ${formatDZD(totalSales)}\n` +
+                `• إجمالي المصاريف: ${formatDZD(totalExpenses)}\n` +
+                `• صافي الربح الفعلي: ${formatDZD(netProfit)}\n` +
+                `• الديون العالقة عند الزبائن (الكريدي): ${formatDZD(totalRec)}`;
+
+            copyToClipboard(summary, 'تم نسخ الملخص المالي! يمكنك لصقه في واتساب أو أي مكان');
+        }
+
+        function downloadJSONBackup() {
+            const payload = {
+                app: 'Mizani',
+                exportedAt: new Date().toISOString(),
+                transactions,
+                credits
+            };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `mizani-backup-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('تم تنزيل ملف النسخة الاحتياطية');
+        }
+
+        function confirmResetAll() {
+            showConfirmModal(
+                'تصفير جميع البيانات',
+                'سيتم مسح جميع العمليات المسجلة ودفتر الديون نهائياً والبدء من الصفر. هل أنت متأكد من المتابعة؟',
+                () => {
+                    transactions = [];
+                    credits = [];
+                    saveData();
+                    renderDashboard();
+                    renderTransactions();
+                    renderCredits();
+                    showToast('تم تصفير جميع البيانات بنجاح', 'info');
+                }
+            );
+        }
+
+        // نسخ نص للحافظة متوافق مع قيود iFrame
+        function copyToClipboard(text, successMsg) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showToast(successMsg);
+            } catch (err) {
+                showToast('تعذر النسخ التلقائي', 'error');
+            }
+            document.body.removeChild(textarea);
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        // ==========================================
+        // 9. التهيئة عند تحميل الصفحة
+        // ==========================================
+        window.onload = function() {
+            loadData();
+            document.getElementById('tx-date').value = new Date().toISOString().split('T')[0];
+            renderDashboard();
+            renderTransactions();
+            renderCredits();
+            calculatePricing();
+            lucide.createIcons();
+        };
+    </script>
+</body>
+</html>
